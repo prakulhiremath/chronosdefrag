@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/prakulhiremath/chronosdefrag/actions/workflows/ci.yml/badge.svg)](https://github.com/prakulhiremath/chronosdefrag/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/chronosdefrag)](https://pypi.org/project/chronosdefrag/)
+[![DOI](https://zenodo.org/badge/1246002937.svg)](https://doi.org/10.5281/zenodo.20331773)
 
 **Temporal Defragmentation for Quantitative Finance**
 
