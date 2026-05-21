@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/prakulhiremath/chronosdefrag/actions/workflows/ci.yml/badge.svg)](https://github.com/prakulhiremath/chronosdefrag/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/chronosdefrag)](https://pypi.org/project/chronosdefrag/)
-[![DOI](https://zenodo.org/badge/1246002937.svg)](https://doi.org/10.5281/zenodo.20331773)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20331774.svg)](https://doi.org/10.5281/zenodo.20331774)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-blue)
 ![PyTorch](https://img.shields.io/badge/PyTorch-%3E%3D2.1-orange)
