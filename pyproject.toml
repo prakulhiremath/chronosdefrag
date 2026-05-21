@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name            = "chronosdefrag"
+version         = "0.1.0"
+description     = "Temporal Defragmentation for Quant Finance — experimental regime representation learning"
+readme          = "README.md"
+requires-python = ">=3.10"
+license         = { text = "MIT" }
+
+keywords = [
+    "machine-learning",
+    "quantitative-finance",
+    "time-series",
+    "contrastive-learning",
+    "regime-detection",
+    "representation-learning",
+]
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Office/Business :: Financial",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "torch>=2.1",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-benchmark>=4.0",
+]
+
+[project.scripts]
+chronosdefrag = "main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["defrag*"]
+
+[tool.pytest.ini_options]
+testpaths      = ["tests"]
+python_files   = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+log_cli        = true
+log_cli_level  = "WARNING"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "N"]
+ignore = ["N803", "N806"]
+
+[tool.mypy]
+python_version  = "3.10"
+strict          = true
+ignore_missing_imports = true
