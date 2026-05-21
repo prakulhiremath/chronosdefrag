@@ -1,4 +1,5 @@
 # ChronosDefrag
+[![CI](https://github.com/prakulhiremath/chronosdefrag/actions/workflows/ci.yml/badge.svg)](https://github.com/prakulhiremath/chronosdefrag/actions/workflows/ci.yml)
 
 **Temporal Defragmentation for Quantitative Finance**
 
