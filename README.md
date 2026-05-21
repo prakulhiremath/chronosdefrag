@@ -1,6 +1,7 @@
 # ChronosDefrag
 
 [![CI](https://github.com/prakulhiremath/chronosdefrag/actions/workflows/ci.yml/badge.svg)](https://github.com/prakulhiremath/chronosdefrag/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/chronosdefrag)](https://pypi.org/project/chronosdefrag/)
 
 **Temporal Defragmentation for Quantitative Finance**
 
