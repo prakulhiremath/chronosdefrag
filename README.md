@@ -21,32 +21,32 @@ This is not a trading system. It is an experimental temporal representation-lear
 │  Raw Tick Stream (T, F)                                             │
 │       │                                                             │
 │       ▼                                                             │
-│  Block Slicer ──► (N, block_len, F)   causal, non-overlapping      │
+│  Block Slicer ──► (N, block_len, F)   causal, non-overlapping       │
 │       │                                                             │
 │       ▼                                                             │
 │  RegimeEncoder                                                      │
-│  ├─ CausalConv1D residual stack       no future leakage            │
+│  ├─ CausalConv1D residual stack       no future leakage             │
 │  ├─ Temporal mean pooling                                           │
-│  ├─ L2-normalised latent head         (N, latent_dim)              │
-│  └─ Projection head                   InfoNCE contrastive loss     │
+│  ├─ L2-normalised latent head         (N, latent_dim)               │
+│  └─ Projection head                   InfoNCE contrastive loss      │
 │       │                                                             │
-│       │   ┌──────────────────────────────────────────────┐         │
-│       │   │  Novel Regularisers                          │         │
-│       │   │  • Temporal Entropy Reg. (TER)               │         │
-│       │   │  • Latent Continuity Reg. (LCR)              │         │
-│       │   └──────────────────────────────────────────────┘         │
+│       │   ┌──────────────────────────────────────────────┐          │
+│       │   │  Novel Regularisers                          │          │
+│       │   │  • Temporal Entropy Reg. (TER)               │          │ 
+│       │   │  • Latent Continuity Reg. (LCR)              │          │
+│       │   └──────────────────────────────────────────────┘          │
 │       │                                                             │
 │       ▼                                                             │
 │  VectorDefragRouter                                                 │
-│  ├─ All-pairs cosine similarity       (N, N) pure PyTorch          │
-│  ├─ Greedy nearest-neighbour chain    pseudo-timeline permutation  │
-│  └─ Circular historical registry     O(1) in-memory lookup        │
+│  ├─ All-pairs cosine similarity       (N, N) pure PyTorch           │
+│  ├─ Greedy nearest-neighbour chain    pseudo-timeline permutation   │
+│  └─ Circular historical registry     O(1) in-memory lookup          │
 │       │                                                             │
 │       ▼                                                             │
 │  TemporalPredictor                                                  │
-│  ├─ GLU blocks with gated recurrence                               │
-│  ├─ Operates on pseudo-timeline order (not chronological)          │
-│  └─ Latent reconstruction objective  (self-supervised)             │
+│  ├─ GLU blocks with gated recurrence                                │
+│  ├─ Operates on pseudo-timeline order (not chronological)           │
+│  └─ Latent reconstruction objective  (self-supervised)              │
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -55,19 +55,19 @@ This is not a trading system. It is an experimental temporal representation-lear
 │  Live Tick Window (block_len, F)                                    │
 │       │                                                             │
 │       ▼                                                             │
-│  RegimeEncoder ──► query latent z     (latent_dim,)                │
+│  RegimeEncoder ──► query latent z     (latent_dim,)                 │
 │       │                                                             │
 │       ▼                                                             │
 │  VectorDefragRouter.reconstruct_context()                           │
-│  ├─ Vectorised cosine similarity against full registry             │
-│  ├─ Similarity Persistence Decay (SPD) weighting                   │
-│  └─ Weighted pseudo-neighbourhood embedding                        │
+│  ├─ Vectorised cosine similarity against full registry              │
+│  ├─ Similarity Persistence Decay (SPD) weighting                    │
+│  └─ Weighted pseudo-neighbourhood embedding                         │
 │       │                                                             │
 │       ▼                                                             │
 │  TemporalPredictor.infer()                                          │
 │       │                                                             │
 │       ▼                                                             │
-│  { alpha_prediction, regime_confidence, system_latency_ms }        │
+│  { alpha_prediction, regime_confidence, system_latency_ms }         │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
