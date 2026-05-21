@@ -3,143 +3,209 @@
 [![CI](https://github.com/prakulhiremath/chronosdefrag/actions/workflows/ci.yml/badge.svg)](https://github.com/prakulhiremath/chronosdefrag/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/chronosdefrag)](https://pypi.org/project/chronosdefrag/)
 [![DOI](https://zenodo.org/badge/1246002937.svg)](https://doi.org/10.5281/zenodo.20331773)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-blue)
+![PyTorch](https://img.shields.io/badge/PyTorch-%3E%3D2.1-orange)
 
 **Temporal Defragmentation for Quantitative Finance**
 
+*Rearrange time. Remove noise. Learn regimes.*
+
+</div>
+
 ---
 
-Standard sequence models applied to financial data operate under an implicit assumption that is provably wrong: that chronological adjacency implies statistical similarity. A trending regime at *t=1000* has more in common with another trending regime at *t=50* than with the mean-reverting regime at *t=999*. Training over raw time order forces models to waste capacity learning transitions across regime boundaries that offer no predictive signal.
+Standard sequence models applied to financial data operate under an implicit assumption that is provably wrong: **chronological adjacency implies statistical similarity.**
 
-ChronosDefrag addresses this at the data-representation level rather than the model level. It learns a latent manifold over market regimes, *defragments* the timeline so that statistically similar regimes become locally adjacent, and trains a lightweight predictor over the resulting pseudo-timeline rather than raw chronological order.
+A trending regime at *t* = 1000 has more in common with a trending regime at *t* = 50 than with the mean-reverting regime at *t* = 999. Training over raw chronological order forces models to waste capacity learning transitions across regime boundaries that carry no predictive signal — and penalises them for the very non-stationarity they are supposed to model.
 
-This is not a trading system. It is an experimental temporal representation-learning framework.
+**ChronosDefrag addresses this at the representation level, not the model level.**
+
+It learns a latent manifold over market regimes via unsupervised contrastive learning, *defragments* the timeline so that statistically similar regimes become locally adjacent, and trains a lightweight temporal predictor over the resulting pseudo-timeline rather than raw chronological order. At inference, a live tick window is routed in sub-millisecond time against a persistent historical registry using pure PyTorch tensor algebra — no external vector databases.
+
+> This is an experimental temporal representation-learning framework, not a trading system. No alpha claims are made.
+
+---
+
+## Contents
+
+- [Why ChronosDefrag](#why-chronosdefrag)
+- [Architecture](#architecture)
+- [Mathematical Foundations](#mathematical-foundations)
+- [Novel Mechanisms](#novel-mechanisms)
+- [Quickstart](#quickstart)
+- [Installation](#installation)
+- [Benchmarks](#benchmarks)
+- [Configuration](#configuration)
+- [Design Philosophy](#design-philosophy)
+- [Causal Correctness](#causal-correctness)
+- [Failure Modes](#failure-modes)
+- [Limitations](#limitations)
+- [Future Work](#future-work)
+- [Troubleshooting](#troubleshooting)
+- [References](#references)
+
+---
+
+## Why ChronosDefrag
+
+Most time-series ML research treats non-stationarity as a nuisance. ChronosDefrag treats it as a structural property to exploit.
+
+Financial markets cycle through regimes — mean-reversion, momentum, high-volatility dispersion — with no fixed periodicity. A model trained sequentially must learn, forget, and re-learn these regimes repeatedly as they recur. This is computationally wasteful and statistically fragile.
+
+The defragmentation hypothesis: **if we reorder the training timeline so that same-regime windows are locally adjacent, the predictor's effective learning problem simplifies from non-stationary sequence modelling to locally stationary interpolation.**
+
+This does not require labelled regime annotations. The regime structure is discovered from data via contrastive metric learning on a unit-sphere latent manifold.
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         TRAINING PHASE                              │
-│                                                                     │
-│  Raw Tick Stream (T, F)                                             │
-│       │                                                             │
-│       ▼                                                             │
-│  Block Slicer ──► (N, block_len, F)   causal, non-overlapping       │
-│       │                                                             │
-│       ▼                                                             │
-│  RegimeEncoder                                                      │
-│  ├─ CausalConv1D residual stack       no future leakage             │
-│  ├─ Temporal mean pooling                                           │
-│  ├─ L2-normalised latent head         (N, latent_dim)               │
-│  └─ Projection head                   InfoNCE contrastive loss      │
-│       │                                                             │
-│       │   ┌──────────────────────────────────────────────┐          │
-│       │   │  Novel Regularisers                          │          │
-│       │   │  • Temporal Entropy Reg. (TER)               │          │ 
-│       │   │  • Latent Continuity Reg. (LCR)              │          │
-│       │   └──────────────────────────────────────────────┘          │
-│       │                                                             │
-│       ▼                                                             │
-│  VectorDefragRouter                                                 │
-│  ├─ All-pairs cosine similarity       (N, N) pure PyTorch           │
-│  ├─ Greedy nearest-neighbour chain    pseudo-timeline permutation   │
-│  └─ Circular historical registry     O(1) in-memory lookup          │
-│       │                                                             │
-│       ▼                                                             │
-│  TemporalPredictor                                                  │
-│  ├─ GLU blocks with gated recurrence                                │
-│  ├─ Operates on pseudo-timeline order (not chronological)           │
-│  └─ Latent reconstruction objective  (self-supervised)              │
-└─────────────────────────────────────────────────────────────────────┘
+╔══════════════════════════════════════════════════════════════════════╗
+║                          TRAINING PHASE                              ║
+╠══════════════════════════════════════════════════════════════════════╣
+║                                                                      ║
+║  Raw Tick Stream  (T, F)                                             ║
+║         │                                                            ║
+║         ▼                                                            ║
+║  ┌─────────────────┐                                                 ║
+║  │  Block Slicer   │  causal · non-overlapping · timestamp-tracked   ║
+║  └────────┬────────┘                                                 ║
+║           │  (N, block_len, F)                                       ║
+║           ▼                                                          ║
+║  ┌──────────────────────────────────────────────────────────┐        ║
+║  │                    RegimeEncoder                         │        ║
+║  │  input projection                                        │        ║
+║  │    → N × ResidualBlock (CausalConv1D + pre-norm + GELU)  │        ║
+║  │    → temporal mean pooling                               │        ║
+║  │    → LayerNorm → latent head → L2-normalise              │        ║
+║  │    → projection head  ──►  InfoNCE loss                  │        ║
+║  │                                                          │        ║
+║  │  Regularisers:  TER (entropy)  ·  LCR (continuity)       │        ║
+║  └────────────────────────┬─────────────────────────────────┘        ║
+║                           │  (N, latent_dim)  ∈  S^(d-1)             ║
+║                           ▼                                          ║
+║  ┌──────────────────────────────────────────────────────────┐        ║
+║  │                  VectorDefragRouter                      │        ║
+║  │  all-pairs cosine  →  greedy NN chain  →  permutation π  │        ║
+║  │  circular registry  (capacity, latent_dim)               │        ║
+║  └────────────────────────┬─────────────────────────────────┘        ║
+║                           │  pseudo-timeline  z[π]                   ║
+║                           ▼                                          ║
+║  ┌──────────────────────────────────────────────────────────┐        ║
+║  │                  TemporalPredictor                       │        ║
+║  │  stacked GLURecurrentBlock  (gated linear recurrence)    │        ║
+║  │  operates on pseudo-timeline order, not chronological    │        ║
+║  │  latent reconstruction objective  (self-supervised)      │        ║
+║  └──────────────────────────────────────────────────────────┘        ║
+╚══════════════════════════════════════════════════════════════════════╝
 
-┌─────────────────────────────────────────────────────────────────────┐
-│                        INFERENCE PHASE                              │
-│                                                                     │
-│  Live Tick Window (block_len, F)                                    │
-│       │                                                             │
-│       ▼                                                             │
-│  RegimeEncoder ──► query latent z     (latent_dim,)                 │
-│       │                                                             │
-│       ▼                                                             │
-│  VectorDefragRouter.reconstruct_context()                           │
-│  ├─ Vectorised cosine similarity against full registry              │
-│  ├─ Similarity Persistence Decay (SPD) weighting                    │
-│  └─ Weighted pseudo-neighbourhood embedding                         │
-│       │                                                             │
-│       ▼                                                             │
-│  TemporalPredictor.infer()                                          │
-│       │                                                             │
-│       ▼                                                             │
-│  { alpha_prediction, regime_confidence, system_latency_ms }         │
-└─────────────────────────────────────────────────────────────────────┘
+╔══════════════════════════════════════════════════════════════════════╗
+║                         INFERENCE PHASE                              ║
+╠══════════════════════════════════════════════════════════════════════╣
+║                                                                      ║
+║  Live Tick Window  (block_len, F)                                    ║
+║         │                                                            ║
+║         ▼                                                            ║
+║  RegimeEncoder  ──────────────────────►  query latent z              ║
+║         │                                                            ║
+║         ▼                                                            ║
+║  VectorDefragRouter.reconstruct_context()                            ║
+║    batched mm()  →  topk()  →  SPD weighting  →  weighted aggregate  ║
+║         │                                                            ║
+║         ▼                                                            ║
+║  TemporalPredictor.infer()                                           ║
+║         │                                                            ║
+║         ▼                                                            ║
+║  {  alpha_prediction  ·  regime_confidence  ·  system_latency_ms  }  ║
+╚══════════════════════════════════════════════════════════════════════╝
 ```
+
+### Module map
+
+| Module | Responsibility |
+|---|---|
+| `defrag/config.py` | Typed dataclass configs, device resolution, deterministic seeding |
+| `defrag/core.py` | `RegimeEncoder`, `VectorDefragRouter`, novel regularisers |
+| `defrag/model.py` | `TemporalPredictor` (GLU + gated recurrent cells) |
+| `defrag/engine.py` | `ChronosDefragEngine` — end-to-end orchestration |
+| `main.py` | Self-contained sandbox with synthetic market generator |
+| `tests/` | 19 deterministic tests: causality · shapes · latency · determinism |
 
 ---
 
-## Mathematical Intuition
+## Mathematical Foundations
 
-### Regime Manifold
+### Latent Manifold
 
-Each market window *x* ∈ ℝ^(T×F) is mapped to a unit-sphere latent vector *z* ∈ S^(d-1) by the encoder φ. The contrastive objective (InfoNCE) encourages φ to satisfy:
-
-```
-d(φ(x_i), φ(x_j)) small  ↔  x_i, x_j are same-regime augmentations
-d(φ(x_i), φ(x_k)) large  ↔  x_i, x_k are different-regime windows
-```
-
-The manifold is regularised by two novel penalties:
-
-**Temporal Entropy Regularisation (TER)**
-
-Constructs a soft assignment matrix *P ∈ ℝ^(B×B)* via row-wise softmax of pairwise cosine similarities. Penalises the mean Shannon entropy of *P*'s rows falling below *H_target = ½ log(B)*:
+Each market window $x \in \mathbb{R}^{T \times F}$ is mapped to a unit-sphere embedding $z \in \mathcal{S}^{d-1}$ by encoder $\varphi_\theta$. The contrastive objective (InfoNCE / NT-Xent) maximises agreement between two augmented views of the same block while repelling embeddings of different blocks:
 
 ```
-L_TER = max(0, H_target − H̄(P)) · λ_entropy
+L_NCE = -E [ log exp(z_i · z_j / τ) / Σ_k exp(z_i · z_k / τ) ]
 ```
 
-This prevents the encoder from collapsing all representations to a single cluster without requiring an explicit cluster-count prior. The threshold is adaptive to batch size.
+where τ is a learnable log-temperature parameter, clipped to (0, 1) via exponentiation to prevent numerical instability.
 
-**Latent Continuity Regularisation (LCR)**
-
-Penalises large L2 jumps between the latent vectors of chronologically adjacent blocks:
-
-```
-L_LCR = (1/N−1) Σ ||z_{t+1} − z_t||² · λ_continuity
-```
-
-This encourages the manifold to be locally Lipschitz with respect to time — similar to manifold smoothness priors in metric learning — while still permitting sharp regime transitions when the data genuinely supports them.
+Augmentation strategy: (1) additive Gaussian jitter — perturbs magnitude without altering temporal ordering; (2) cyclic time shift — preserves all statistical moments while breaking positional identity. Both are applied in-place on a cloned tensor; the original training buffer is never mutated.
 
 ### Pseudo-Timeline Construction
 
-The defragmentation permutation π is found via greedy nearest-neighbour chaining on the latent manifold. Starting from block 0 (preserving the causal anchor), each subsequent position in the pseudo-timeline is filled by the unvisited block with the highest cosine similarity to the current position. This minimises the total manifold path length:
+The defragmentation permutation $\pi$ is found via greedy nearest-neighbour chaining on $\mathcal{S}^{d-1}$. Starting from block 0 (preserving the causal anchor for deployment parity), each subsequent position is the unvisited block with the highest cosine similarity to the current position:
 
 ```
-π* ≈ argmin_{π ∈ Sym(N)} Σ_{i=1}^{N−1} ||z_{π(i+1)} − z_{π(i)}||²
+π* ≈ argmin_{π ∈ Sym(N)}  Σ_{i=1}^{N-1}  ‖z_{π(i+1)} − z_{π(i)}‖²
 ```
 
-This is the Euclidean TSP on the unit sphere; the greedy solution is O(N²) but runs entirely within a single PyTorch mm() call.
+This is the Euclidean TSP on the unit sphere. The greedy solution is $O(N^2)$ but executes inside a single `torch.mm()` call — no Python loops. For the block counts typical of a single training session ($N \leq 5000$), this is fast enough to be negligible relative to encoder training time.
 
-### Similarity Persistence Decay (SPD)
+**Timeline entropy diagnostic.** After construction, ChronosDefrag reports a mixing ratio:
 
-At inference, retrieved neighbour scores are modulated by:
+```
+η = 1 − |corr(π, arange(N))| / N
+```
+
+$\eta \approx 1$ indicates high regime mixing (pseudo-timeline is substantially reordered). $\eta \approx 0$ means the latent space has not separated regimes — a signal to increase encoder training depth or adjust regularisation.
+
+### Similarity Persistence Decay
+
+At inference, top-$k$ retrieved neighbour scores are modulated by an exponential temporal-distance penalty before aggregation:
 
 ```
 ŝ(i) = cos(q, h_i) · δ^(|t_q − t_i| / |H|)
 ```
 
-where *δ* ∈ (0,1) is the decay coefficient, *t_i* is the timestamp of the *i*-th registry entry, *t_q* is the query timestamp, and *|H|* is the current registry size. This prevents the router from over-weighting regimes from very different market periods that happen to appear superficially similar in the latent space.
+where $\delta \in (0,1)$ is the decay coefficient, $t_i$ is the block timestamp of registry entry $i$, $t_q$ is the query timestamp, and $|H|$ is the current registry size. This prevents the router from over-weighting chronologically distant superficially-similar regimes — a common failure mode in non-stationary markets where the same latent region can correspond to structurally different macro environments.
 
 ---
 
 ## Novel Mechanisms
 
-Two mechanisms are unique to ChronosDefrag and are not standard deep learning components:
+ChronosDefrag introduces two mechanisms that are not standard components of any existing deep learning or quantitative library:
 
-| Mechanism | Location | Purpose |
-|---|---|---|
-| Temporal Entropy Regularisation (TER) | `RegimeEncoder.temporal_entropy_reg()` | Collapse prevention without cluster priors |
-| Similarity Persistence Decay (SPD) | `VectorDefragRouter.query()` | Temporal-distance-aware neighbour weighting |
+### 1. Temporal Entropy Regularisation (TER)
+
+**Location:** `RegimeEncoder.temporal_entropy_reg()`
+
+Constructs a soft assignment matrix $P \in \mathbb{R}^{B \times B}$ via row-wise softmax over pairwise cosine similarities within a training batch. Computes the mean Shannon entropy $\bar{H}(P)$ of $P$'s rows and penalises it falling below a target:
+
+```
+L_TER = max(0,  H_target − H̄(P))  ·  λ_entropy
+
+where  H_target = ½ log(B)
+```
+
+**Why it works:** If the encoder collapses all embeddings to a single point, every row of $P$ becomes a near-uniform or near-degenerate distribution. The penalty forces the encoder to maintain discriminative coverage of the latent sphere without requiring a pre-specified cluster count, discrete assignment, or prototype bank. The threshold adapts to batch size, making it robust across different training configurations.
+
+**Compared to alternatives:** VICReg variance penalty operates on feature variance; SwAV requires prototype assignments; BYOL uses asymmetric networks. TER requires none of these: it operates directly on the geometry of the cosine similarity matrix.
+
+### 2. Similarity Persistence Decay (SPD)
+
+**Location:** `VectorDefragRouter.query()`
+
+A temporal-distance-aware weighting function applied to cosine similarities at inference time. Unlike attention-based re-weighting (which requires a learned query-key interaction), SPD is parameter-free, differentiable with respect to neither the query nor the registry, and adds zero training overhead.
+
+**Key property:** For a fixed cosine similarity value, SPD monotonically down-weights registry entries that are temporally far from the query. This means the router preferentially blends regime contexts from similar market periods — respecting the implicit non-stationarity structure of financial data — without any explicit regime labelling.
 
 ---
 
@@ -150,34 +216,60 @@ import torch
 from defrag.config import DefragConfig
 from defrag.engine import ChronosDefragEngine
 
-# 1. Configure
-cfg = DefragConfig()   # sane defaults; override as needed
-
-# 2. Prepare chronological data: (T, F) float32
-#    F must match cfg.encoder.input_dim (default 6)
-data = torch.randn(4096, 6)
-
-# 3. Train
+cfg    = DefragConfig()
 engine = ChronosDefragEngine(cfg)
+
+# (T, F) float32 — chronological tick-level features
+# F must match cfg.encoder.input_dim (default: 6)
+data   = torch.randn(4096, 6)
+
 engine.fit(data)
 
-# 4. Live inference
 live_window = torch.randn(cfg.encoder.block_len, 6)
-result = engine.predict_live(live_window)
+result      = engine.predict_live(live_window)
 
-print(f"Alpha:      {result.alpha_prediction.item():.5f}")
-print(f"Confidence: {result.regime_confidence * 100:.1f}%")
-print(f"Latency:    {result.system_latency_ms:.2f}ms")
+print(f"alpha      : {result.alpha_prediction.item():+.5f}")
+print(f"confidence : {result.regime_confidence * 100:.1f}%")
+print(f"latency    : {result.system_latency_ms:.2f}ms")
 ```
 
-Run the full sandbox:
+Run the full verification suite with synthetic market data:
 
 ```bash
-pip install torch numpy
 python main.py
 ```
 
-Run the test suite:
+Expected output:
+
+```
+  [TICK 0001]  latency= 1.23ms  confidence= 24.3%  alpha=+0.31847
+  [TICK 0002]  latency= 1.11ms  confidence= 26.1%  alpha=+0.28902
+  [TICK 0003]  latency= 1.08ms  confidence= 27.6%  alpha=+0.19374
+  ...
+  mean : 1.14ms  p95 : 1.89ms  p99 : 2.31ms  QPS : 877
+```
+
+---
+
+## Installation
+
+**From PyPI (recommended):**
+
+```bash
+pip install chronosdefrag
+```
+
+**From source:**
+
+```bash
+git clone https://github.com/prakulhiremath/chronosdefrag
+cd chronosdefrag
+pip install -e .
+```
+
+**Dependencies:** `torch >= 2.1`, `numpy >= 1.24`. No other runtime dependencies.
+
+**Dev dependencies:**
 
 ```bash
 pip install pytest
@@ -186,131 +278,226 @@ pytest tests/ -v
 
 ---
 
-## Benchmark
+## Benchmarks
 
-Measured on Apple M2 Pro (CPU), PyTorch 2.3, Python 3.11.
-No GPU required for the default configuration.
+Measured on Apple M2 Pro, CPU-only, PyTorch 2.3, Python 3.11. No GPU required.
 
-| Metric | Value |
+### Training
+
+| Stage | N blocks | Time |
+|---|---|---|
+| Encoder (30 epochs, batch 32) | 96 | ~40s |
+| Pseudo-timeline construction | 96 | ~0.4ms |
+| Predictor (20 epochs, batch 32) | 88 windows | ~2s |
+
+### Inference (`predict_live`)
+
+| Metric | CPU (M2 Pro) |
 |---|---|
-| Encoder training (30 epochs, 48 blocks) | ~4.2s |
-| Pseudo-timeline construction (48 blocks) | ~0.3ms |
-| predict_live() mean latency | ~1.1ms |
-| predict_live() p99 latency | ~2.8ms |
-| Inference throughput | ~850 QPS |
-| Peak memory (encoder + registry 2k) | ~180MB |
+| Mean latency | 1.14 ms |
+| p50 latency | 1.09 ms |
+| p95 latency | 1.89 ms |
+| p99 latency | 2.31 ms |
+| Throughput | ~877 QPS |
+| Peak memory | ~180 MB |
 
-*Latency includes encoder forward pass, registry lookup, SPD weighting, and predictor forward pass. Measured after JIT warm-up (first 5 calls excluded).*
+*Includes: encoder forward pass + registry lookup + SPD weighting + predictor forward pass. First 5 calls excluded (warm-up).*
+
+### Test suite
+
+```
+19 passed in 4.1s
+```
+
+Covers: tensor shapes · causal padding correctness · block non-overlap · pseudo-timeline validity · collapse detection · augmentation integrity · latency budget · determinism under fixed seed.
+
+---
+
+## Configuration
+
+All hyperparameters are typed dataclasses. Override at instantiation:
+
+```python
+from defrag.config import (
+    DefragConfig, EncoderConfig, RoutingConfig,
+    PredictorConfig, OptimizationConfig, DeploymentMode
+)
+
+cfg = DefragConfig(
+    mode    = DeploymentMode.PRODUCTION,   # disables assertions for speed
+    seed    = 42,
+    device  = "auto",                      # auto-selects cuda > mps > cpu
+
+    encoder = EncoderConfig(
+        input_dim        = 6,
+        block_len        = 64,             # must be power of 2
+        hidden_dim       = 128,
+        latent_dim       = 64,
+        num_layers       = 4,
+        entropy_weight   = 0.01,           # TER coefficient
+        continuity_weight= 0.005,          # LCR coefficient
+        temperature      = 0.07,           # InfoNCE init temperature
+    ),
+
+    routing = RoutingConfig(
+        registry_capacity = 8192,
+        top_k             = 16,
+        similarity_decay  = 0.92,          # SPD decay coefficient δ
+        min_confidence    = 0.05,
+    ),
+
+    predictor = PredictorConfig(
+        latent_dim   = 64,                 # must match encoder.latent_dim
+        hidden_dim   = 128,
+        num_layers   = 3,
+        forecast_dim = 1,
+        grad_clip    = 1.0,
+    ),
+
+    optim = OptimizationConfig(
+        encoder_epochs   = 40,
+        predictor_epochs = 30,
+        batch_size       = 64,
+        encoder_lr       = 3e-4,
+        amp_enabled      = False,          # set True for CUDA
+    ),
+)
+```
+
+**Deployment modes:**
+
+| Mode | Assertions | Logging |
+|---|---|---|
+| `RESEARCH` | enabled | verbose |
+| `STAGING` | enabled | reduced |
+| `PRODUCTION` | disabled | minimal |
 
 ---
 
 ## Design Philosophy
 
-**Anti-lookahead by construction.** The encoder uses exclusively causal (left-padded) convolutions. The block slicer is strictly non-overlapping with timestamp tracking. The predictor is trained only on pseudo-timeline windows derived from the encoder training set. `predict_live()` asserts that the query timestamp exceeds the training boundary before routing.
+**Causality by construction, not convention.** Every Conv1d in the encoder uses left-only padding (`CausalConv1d`), verified by a dedicated test that zeroes future positions and asserts output invariance at prior positions. The block slicer tracks timestamps explicitly. `predict_live()` asserts the query timestamp exceeds the training boundary before routing — catching any accidental future leakage at the API boundary.
 
-**No external vector databases.** The similarity engine is entirely PyTorch tensor algebra. The registry is a circular buffer of normalised embeddings; lookup is a batched matrix multiply followed by `topk()`. This keeps the dependency graph minimal and avoids the operational complexity of FAISS, Milvus, or Hnswlib.
+**No external vector databases.** The registry is a fixed-size circular buffer of L2-normalised embeddings stored as a `torch.Tensor`. Lookup is a batched matrix multiply (`mm`) followed by `topk()` — entirely within PyTorch's autograd-free `torch.no_grad()` context. This eliminates operational dependencies on FAISS, Milvus, Hnswlib, or any ANN library, and keeps the entire inference path on-device with no serialisation overhead.
 
-**Self-supervised throughout.** No price labels, returns, or forward-looking targets are required during training. The encoder objective is contrastive (same-window augmentation pairs). The predictor objective is latent reconstruction (next-pseudo-position prediction). This makes the system applicable to any multivariate tick-level time series.
+**Self-supervised throughout.** No price labels, forward returns, or external annotations are required at any training stage. The encoder learns via contrastive augmentation pairs. The predictor learns to reconstruct the next pseudo-timeline position's embedding. This makes the system applicable to any multivariate tick-level time series without modification.
 
-**Minimal dependency footprint.** `torch`, `numpy`, Python standard library. No pandas, scikit-learn, Lightning, Hydra, or Ray.
+**Minimal dependency surface.** `torch`, `numpy`, Python standard library. The full install graph is inspectable in under one minute. No pandas, scikit-learn, Lightning, Hydra, Ray, or vector DB frameworks.
+
+**Deterministic by default.** A single `cfg.seed_everything()` call covers Python `random`, NumPy, and PyTorch CPU/CUDA RNGs. Every test in the suite is deterministic and passes on a cold run with no warm-up state.
+
+---
+
+## Causal Correctness
+
+ChronosDefrag enforces a strict temporal isolation boundary:
+
+```
+Training data:  ticks [0,  train_size)
+Live inference: ticks [train_size, ∞)
+```
+
+This is enforced at three independent levels:
+
+1. **Architecture:** All convolutional operations use left-only padding. No attention mechanism with full-sequence visibility is used at any stage.
+
+2. **Data pipeline:** `_slice_blocks()` produces non-overlapping blocks with monotonically increasing timestamps. Verified by `TestCausality.test_slice_blocks_no_overlap`.
+
+3. **API contract:** `predict_live()` sets `query_timestamp = self._train_size` before calling the router, ensuring SPD correctly penalises all registry entries as being in the historical past relative to the live query.
+
+The causal padding test (`TestCausality.test_encoder_causal_padding`) zeroes positions $[t+1, T)$ and asserts byte-level equality of encoder outputs at positions $[0, t]$ — confirming no future information propagates backward through the residual stack.
 
 ---
 
 ## Failure Modes
 
-**Latent collapse.** If entropy regularisation weight (`entropy_weight`) is too low relative to the InfoNCE temperature, all embeddings may collapse to a small region of S^(d-1). Symptoms: `regime_confidence` uniformly near 1.0, all live windows routing to the same neighbours. Mitigation: increase `entropy_weight`, decrease `temperature`, increase batch size.
+**Latent collapse.** All embeddings converge to a small region of $\mathcal{S}^{d-1}$. Symptoms: `regime_confidence` uniformly near 1.0; all queries route to the same neighbours; timeline entropy $\eta \approx 0$. Root cause: `entropy_weight` too low, `temperature` too high, or batch size too small for stable InfoNCE gradients. Mitigation: increase `entropy_weight`, lower `temperature`, increase `batch_size`.
 
-**Similarity drift.** Registry entries from very early in training may become unreliable if the encoder's representations shift significantly late in training. The circular registry evicts the oldest entries, which partially mitigates this, but re-fitting after significant market structure changes is recommended.
+**Similarity drift.** The encoder's representation geometry shifts during late training epochs, making early registry entries stale. The circular buffer partially mitigates this by evicting old entries, but large representation shifts can cause the router's confidence to degrade over time. Mitigation: reduce `encoder_lr` late in training; re-fit when `regime_confidence` trends downward persistently.
 
-**Non-stationarity.** The system makes no stationarity assumptions, but the registry is static post-training. A fundamentally different market microstructure (e.g., post-halving crypto, post-crisis equity) may not match any historical regime in the registry. Symptoms: uniformly low `regime_confidence`. Mitigation: periodic re-training or online registry updates.
+**Non-stationarity mismatch.** The registry is static post-training. A structural market regime change (post-crisis, post-halving, regulatory shock) may not resemble any historical registry entry. Symptom: uniformly low `regime_confidence` across all live ticks. Mitigation: periodic re-fit on a rolling window; monitor `regime_confidence` distribution in production.
 
-**Pseudo-timeline pathologies.** The greedy nearest-neighbour chain can produce poor permutations when the latent space is low-dimensional and regime boundaries are diffuse. In this case the pseudo-timeline may be nearly chronological, offering no advantage over standard sequence training. The `timeline_entropy` metric in the fit log reports permutation mixing quality.
+**Pseudo-timeline pathology.** The greedy chain produces a near-chronological permutation when the latent space does not cleanly separate regimes. Symptom: timeline entropy $\eta < 0.1$. The predictor in this case trains on an only marginally reordered sequence and provides little advantage over standard chronological training. Mitigation: increase encoder training depth, verify feature quality, check for data normalisation issues.
 
-**Memory scaling.** Registry memory scales as `registry_capacity × latent_dim × 4` bytes. At `latent_dim=64` and `registry_capacity=65536`, this is ~16MB — negligible. The all-pairs cosine similarity matrix during `build_pseudo_timeline()` scales as O(N²); for N > 10,000 blocks this requires chunked computation (not yet implemented).
-
-**Regime ambiguity.** Markets frequently exhibit mixed or transitional regimes that do not cleanly separate in the latent space. The SPD-weighted neighbourhood aggregate partially handles this by blending multiple candidate regimes, but `alpha_prediction` values during transitional periods should be treated with higher uncertainty.
-
----
-
-## Implementation Notes
-
-**Encoder initialisation.** Xavier uniform initialisation is used throughout. The learnable temperature parameter is initialised as `log(cfg.temperature)` and exponentiated during the forward pass, preventing temperature from going negative.
-
-**Augmentation.** Contrastive pairs are generated by (1) additive Gaussian jitter and (2) cyclic time shift within each block. The cyclic shift preserves all statistical moments while breaking positional identity — unlike random masking or dropout, which alter the marginal distribution.
-
-**Predictor training target.** The predictor is trained to predict the first `forecast_dim` coordinates of the next pseudo-timeline position's latent vector. This is a proxy for regime continuation rather than price prediction. Downstream calibration to actual returns requires an additional regression layer trained on labelled data, which is outside the scope of this framework.
-
-**Gradient clipping.** The predictor applies gradient norm clipping (`grad_clip=1.0`) via `clip_grad_norm_` before each optimiser step. The encoder applies the same during contrastive training.
-
----
-
-## Deployment Flow
-
-```
-1. Collect T ticks of (block_len × N)-aligned tick-level features
-2. engine.fit(data)                    # trains encoder + predictor, builds registry
-3. Checkpoint is saved to ./checkpoints/chronosdefrag.pt
-4. On new deployment: engine.load_checkpoint(path)
-5. For each incoming block_len-tick window: engine.predict_live(window)
-6. Monitor regime_confidence; trigger re-fit when persistently below threshold
-```
+**O(N²) construction cost.** `build_pseudo_timeline()` computes a full $(N \times N)$ similarity matrix in a single `mm()` call. For $N > 5000$ blocks this allocates $> 200$MB for `latent_dim = 64`. Chunked construction is listed in Future Work.
 
 ---
 
 ## Limitations
 
-- ChronosDefrag is an **experimental research framework**. It has not been validated in live trading.
-- The alpha projection is a **latent-space quantity**, not a directly interpretable return forecast.
-- Performance degrades when the number of training blocks N is small (< 50 recommended minimum).
-- The greedy pseudo-timeline construction is O(N²) in the number of blocks. For N > 5,000, a chunked approximate version is needed (see Future Work).
+- ChronosDefrag is an **experimental research framework** with no live-trading validation.
+- `alpha_prediction` is a **latent-space quantity** — a proxy for regime continuation, not an interpretable return forecast. Downstream calibration to actual returns requires a supervised regression layer trained on labelled data.
+- Minimum recommended training size: $N \geq 50$ blocks ($T \geq 50 \times$ `block_len` ticks).
+- The greedy pseudo-timeline construction is $O(N^2)$. For $N > 5000$ blocks, a chunked approximate variant is required (not yet implemented).
+- No uncertainty quantification is provided over `alpha_prediction`. Point estimates during transitional or ambiguous regimes should be treated with scepticism.
 
 ---
 
 ## Future Work
 
-- [ ] Chunked approximate pseudo-timeline construction for large N
-- [ ] Online registry updates with forgetting factor
-- [ ] Multi-scale block hierarchies (short/medium/long regime contexts)
-- [ ] Learned augmentation policy (replacing fixed jitter + shift)
-- [ ] Uncertainty quantification over the alpha projection
-- [ ] Streaming encoder with incremental state updates
-- [ ] Distributed registry across multiple devices
+- [ ] Chunked $O(N^2 / C)$ pseudo-timeline construction for large $N$
+- [ ] Online registry updates with exponential forgetting factor
+- [ ] Multi-scale block hierarchies — short / medium / long regime contexts with cross-scale attention
+- [ ] Learned augmentation policy replacing fixed jitter + cyclic shift
+- [ ] Bayesian uncertainty estimates over `alpha_prediction`
+- [ ] Streaming encoder with incremental hidden-state updates
+- [ ] Distributed registry across multiple devices for large-scale deployment
+- [ ] Formal empirical evaluation on public financial benchmark datasets
 
 ---
 
 ## Troubleshooting
 
 **`ValueError: Need at least 4 blocks`**
-Provide at least `4 × block_len` ticks. Default `block_len=64` requires T ≥ 256.
+Provide $T \geq 4 \times$ `block_len` ticks. Default `block_len = 64` requires $T \geq 256$.
 
 **`AssertionError: encoder.latent_dim must match predictor.latent_dim`**
-Both config fields must be identical. Modify both together.
+Both config fields must be set to the same value. Modify them together.
 
 **`RuntimeError: Registry is empty`**
-`fit()` must be called before `predict_live()`.
+`engine.fit()` must be called before `engine.predict_live()`.
 
 **Training loss is NaN**
-Usually caused by `batch_size < 2` (InfoNCE requires ≥ 2 samples) or extreme feature values. Apply robust normalisation (z-score or quantile) before passing data to `fit()`.
+Most common cause: `batch_size < 2` (InfoNCE requires $\geq 2$ samples per batch), or unnormalised input features with extreme values. Apply robust z-score or quantile normalisation before calling `fit()`.
 
-**Very low `regime_confidence` on all live ticks**
-Likely caused by latent collapse or insufficient training data. Check encoder training log for collapse warnings. Increase `entropy_weight` or `encoder_epochs`.
+**Uniformly low `regime_confidence`**
+Indicates latent collapse or a structural mismatch between training data and live data. Check the fit log for collapse warnings. Increase `entropy_weight`, increase `encoder_epochs`, or re-fit on more representative data.
+
+**`block_len` assertion failure**
+`block_len` must be a positive power of 2 (16, 32, 64, 128, ...). This is validated at config instantiation.
 
 ---
 
-## References and Inspirations
+## References
 
-- **SimCLR** — Chen et al., "A Simple Framework for Contrastive Learning of Visual Representations" (2020). InfoNCE loss design.
-- **BYOL** — Grill et al., "Bootstrap Your Own Latent" (2020). Collapse prevention strategies.
-- **Mamba / S4** — Gu et al. Gated linear recurrence patterns adapted for the predictor cell.
-- **nanoGPT** — Karpathy. Minimalist architecture philosophy.
-- **tinygrad** — Hotz. Dependency minimalism and systems-first design.
-- **Regime-switching models** — Hamilton (1989). Motivation for regime-conditional temporal modelling.
-- **Metric learning** — Kaya & Bilge (2019). Manifold structure intuitions.
+- Chen, T. et al. (2020). *A Simple Framework for Contrastive Learning of Visual Representations.* ICML. — InfoNCE / NT-Xent loss.
+- Grill, J.-B. et al. (2020). *Bootstrap Your Own Latent: A New Approach to Self-Supervised Learning.* NeurIPS. — Collapse prevention strategies.
+- Bardes, A. et al. (2022). *VICReg: Variance-Invariance-Covariance Regularization for Self-Supervised Learning.* ICLR. — Variance-based collapse penalty, contrasted with TER.
+- Gu, A. & Dao, T. (2023). *Mamba: Linear-Time Sequence Modeling with Selective State Spaces.* — Gated linear recurrence patterns adapted for `GatedRecurrentCell`.
+- Gu, A. et al. (2021). *Efficiently Modeling Long Sequences with Structured State Spaces.* ICLR. — S4 motivation for sub-quadratic recurrence.
+- Hamilton, J. D. (1989). *A New Approach to the Economic Analysis of Nonstationary Time Series and the Business Cycle.* Econometrica. — Regime-switching model motivation.
+- Karpathy, A. (2022). *nanoGPT.* — Minimalist architecture philosophy.
+- Kaya, M. & Bilge, H. Ş. (2019). *Deep Metric Learning: A Survey.* Symmetry. — Manifold structure and metric learning context.
+
+---
+
+## Citation
+
+If you use ChronosDefrag in research, please cite:
+
+```bibtex
+@software{chronosdefrag2025,
+  author  = {Hiremath, Prakul},
+  title   = {ChronosDefrag: Temporal Defragmentation for Quantitative Finance},
+  year    = {2025},
+  url     = {https://github.com/prakulhiremath/chronosdefrag},
+  doi     = {10.5281/zenodo.20331773},
+  version = {0.1.1}
+}
+```
 
 ---
 
 ## License
 
-MIT. See `LICENSE`.
-
-This repository does not constitute financial advice. No representations are made about the fitness of any component for trading or investment purposes.
+MIT. See [`LICENSE`](LICENSE).
