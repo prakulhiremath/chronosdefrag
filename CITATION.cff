@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "Hiremath"
+    given-names: "Prakul"
+title: "ChronosDefrag: Temporal Defragmentation for Quantitative Finance"
+version: 0.1.1
+doi: 10.5281/zenodo.20331773
+date-released: 2025
+url: "https://github.com/prakulhiremath/chronosdefrag"
+license: MIT
