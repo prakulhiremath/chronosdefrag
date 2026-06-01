@@ -7,6 +7,7 @@
 ![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-blue)
 ![PyTorch](https://img.shields.io/badge/PyTorch-%3E%3D2.1-orange)
 [![Medium](https://img.shields.io/badge/Medium-Article-black?logo=medium)](https://medium.com/@prakulhiremath/defragmenting-market-time-non-stationary-representation-learning-in-pure-pytorch-15c4a18ccfa3)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/chronosdefrag?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/chronosdefrag)
 
 **Temporal Defragmentation for Quantitative Finance**
 
