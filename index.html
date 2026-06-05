@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChronosDefrag — Temporal Defragmentation for Quantitative Finance</title>
+    <meta name="description" content="Rearrange time. Remove noise. Learn regimes. A PyTorch framework for non-stationary representation learning in financial markets.">
+    
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- MathJax for LaTeX rendering -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <!-- Syntax highlighting via Highlight.js -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    
+    <style>
+        :root {
+            --accent: #0284c7;
+            --accent-light: #38bdf8;
+            --accent-dark: #0369a1;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+        }
+
+        .font-display {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        /* Math rendering */
+        .math-block {
+            background: #f8fafc;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            border-left: 3px solid var(--accent);
+        }
+
+        /* Code block styling */
+        .code-block {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.875rem;
+            line-height: 1.6;
+        }
+
+        .code-block code {
+            color: #e2e8f0;
+        }
+
+        .hljs-string { color: #86efac !important; }
+        .hljs-number { color: #fbbf24 !important; }
+        .hljs-literal { color: #818cf8 !important; }
+        .hljs-attr { color: #60a5fa !important; }
+        .hljs-title { color: #38bdf8 !important; }
+        .hljs-comment { color: #64748b !important; }
+
+        /* Architecture diagram */
+        .architecture-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 0.375rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            line-height: 1.4;
+            overflow-x: auto;
+            color: #475569;
+        }
+
+        /* Mechanism card */
+        .mechanism-card {
+            background: linear-gradient(135deg, rgba(2, 132, 199, 0.05) 0%, rgba(56, 189, 248, 0.05) 100%);
+            border: 1px solid #e2e8f0;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            border-left: 3px solid var(--accent);
+        }
+
+        /* Benchmark table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+        }
+
+        thead {
+            background: #f8fafc;
+        }
+
+        th {
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: #1e293b;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            color: #475569;
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 0.375rem 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-decoration: none;
+            color: #475569;
+            transition: all 0.2s ease;
+        }
+
+        .badge:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(2, 132, 199, 0.05);
+        }
+
+        /* Comparison grid */
+        .comparison-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 0.375rem;
+            transition: all 0.3s ease;
+        }
+
+        .comparison-item:hover {
+            background: #f1f5f9;
+            border-color: var(--accent);
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.08);
+        }
+
+        /* Hero section */
+        .hero {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            padding: 6rem 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .hero-accent {
+            color: var(--accent);
+        }
+
+        /* Section */
+        .section {
+            padding: 4rem 0;
+        }
+
+        .section h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 1.5rem;
+            letter-spacing: -0.01em;
+        }
+
+        .section h3 {
+            font-size: 1.375rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .section p {
+            font-size: 1rem;
+            line-height: 1.7;
+            color: #475569;
+            margin-bottom: 1rem;
+        }
+
+        .section ul {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .section li {
+            color: #475569;
+            margin-bottom: 0.5rem;
+            line-height: 1.7;
+        }
+
+        /* Button */
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: var(--accent);
+            color: white;
+            text-decoration: none;
+            border-radius: 0.375rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            border: 1px solid var(--accent);
+        }
+
+        .btn:hover {
+            background: var(--accent-dark);
+            border-color: var(--accent-dark);
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--accent);
+        }
+
+        .btn-outline:hover {
+            background: rgba(2, 132, 199, 0.1);
+        }
+
+        /* Divider */
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
+            margin: 4rem 0;
+        }
+
+        /* Info box */
+        .info-box {
+            background: #f0f9ff;
+            border-left: 3px solid var(--accent);
+            padding: 1.5rem;
+            border-radius: 0.375rem;
+            margin: 2rem 0;
+        }
+
+        .info-box strong {
+            color: var(--accent);
+        }
+
+        /* Stat boxes */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .stat-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 0.375rem;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent);
+            font-family: 'Courier New', monospace;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: #475569;
+            margin-top: 0.5rem;
+        }
+
+        /* Configuration explorer */
+        .config-section {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            margin: 2rem 0;
+        }
+
+        .config-section h4 {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+
+        .config-option {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .config-option:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .config-key {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: #0284c7;
+            font-size: 0.9rem;
+        }
+
+        .config-value {
+            font-family: 'Courier New', monospace;
+            color: #64748b;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        /* Gradient text */
+        .gradient-text {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Animation */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in {
+            animation: fadeInUp 0.6s ease;
+        }
+
+        /* Scroll indicator */
+        .scroll-indicator {
+            display: inline-block;
+            padding: 0.375rem 0.75rem;
+            background: #f1f5f9;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-white text-gray-900">
+    <!-- Hero Section -->
+    <div class="hero">
+        <div class="max-w-6xl mx-auto px-6 sm:px-8">
+            <!-- Badges -->
+            <div class="flex flex-wrap gap-2 mb-8">
+                <a href="https://github.com/prakulhiremath/chronosdefrag" class="badge" target="_blank" rel="noopener">
+                    🔗 GitHub
+                </a>
+                <a href="https://pypi.org/project/chronosdefrag/" class="badge" target="_blank" rel="noopener">
+                    📦 PyPI
+                </a>
+                <a href="https://doi.org/10.5281/zenodo.20331774" class="badge" target="_blank" rel="noopener">
+                    🔬 Zenodo
+                </a>
+                <a href="https://medium.com/@prakulhiremath/defragmenting-market-time-non-stationary-representation-learning-in-pure-pytorch-15c4a18ccfa3" class="badge" target="_blank" rel="noopener">
+                    ✍️ Medium
+                </a>
+                <span class="badge">⚡ Pure PyTorch</span>
+                <span class="badge">🔒 Self-Supervised</span>
+            </div>
+
+            <!-- Hero Content -->
+            <div class="max-w-3xl">
+                <h1 class="text-5xl sm:text-6xl font-display font-bold mb-4 text-slate-900">
+                    ChronosDefrag
+                </h1>
+                <p class="text-xl text-slate-600 mb-2 font-display font-semibold">
+                    Temporal Defragmentation for Quantitative Finance
+                </p>
+                <p class="text-2xl font-display font-semibold mb-8">
+                    <span class="text-slate-700">Rearrange time.</span>
+                    <span class="hero-accent"> Remove noise.</span>
+                    <span class="text-slate-700"> Learn regimes.</span>
+                </p>
+                <p class="text-lg text-slate-600 mb-8 max-w-2xl leading-relaxed">
+                    A PyTorch framework for non-stationary representation learning. Defragments financial time series by reordering the timeline so that statistically similar market regimes become locally adjacent, then trains a lightweight temporal predictor over the pseudo-timeline instead of raw chronological order.
+                </p>
+
+                <div class="flex flex-wrap gap-4">
+                    <a href="#quickstart" class="btn">Get Started</a>
+                    <a href="https://github.com/prakulhiremath/chronosdefrag" class="btn btn-outline" target="_blank" rel="noopener">
+                        View on GitHub →
+                    </a>
+                </div>
+
+                <p class="text-sm text-slate-500 mt-6 italic">
+                    ⚠️ Experimental research framework. No live-trading validation. No alpha claims.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core Insight -->
+    <div class="max-w-6xl mx-auto px-6 sm:px-8 section">
+        <div class="bg-slate-50 border-l-4 border-blue-600 p-8 rounded-sm">
+            <p class="text-lg text-slate-800 font-semibold mb-4">
+                "Chronological adjacency ≠ Statistical similarity"
+            </p>
+            <p class="text-slate-700 leading-relaxed">
+                A trending regime at <code class="bg-white px-2 py-1 rounded text-sm">t = 1000</code> has more in common with a trending regime at <code class="bg-white px-2 py-1 rounded text-sm">t = 50</code> than with the mean-reverting regime at <code class="bg-white px-2 py-1 rounded text-sm">t = 999</code>. Standard sequence models trained over chronological order waste capacity learning regime transitions that carry no predictive signal. ChronosDefrag reorders the timeline to exploit regime structure.
+            </p>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- The Problem -->
+    <div class="max-w-6xl mx-auto px-6 sm:px-8 section">
+        <h2>Why This Matters</h2>
+
+        <p>
+            Financial markets cycle through regimes — mean-reversion, momentum, high-volatility dispersion — with no fixed periodicity. Most sequence models treat non-stationarity as noise to smooth over.
+        </p>
+
+        <p>
+            ChronosDefrag treats it as <strong>structural signal to exploit.</strong>
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 my-8">
+            <div class="comparison-item">
+                <h4 class="font-bold text-slate-900 mb-3">❌ Standard Approach</h4>
+                <ul class="space-y-2 text-sm text-slate-700">
+                    <li>Train over raw chronological order</li>
+                    <li>Learn and forget regimes repeatedly as they recur</li>
+                    <li>Computationally wasteful</li>
+                    <li>Statistically fragile under regime shifts</li>
+                    <li>No explicit regime awareness</li>
+                </ul>
+            </div>
+
+            <div class="comparison-item" style="border-left: 3px solid var(--success);">
+                <h4 class="font-bold text-slate-900 mb-3">✓ ChronosDefrag</h4>
+                <ul class="space-y-2 text-sm text-slate-700">
+                    <li>Unsupervised regime discovery via contrastive learning</li>
+                    <li>Reorder timeline so regimes are locally adjacent</li>
+                    <li>Train predictor on pseudo-timeline (locally stationary)</li>
+                    <li>Self-supervised throughout—no labels required</li>
+                    <li>Interpretable regime routing at inference</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <p>
+                <strong>The defragmentation hypothesis:</strong> If we reorder the training timeline so that same-regime windows are locally adjacent, the predictor's learning problem simplifies from non-stationary sequence modelling to locally stationary interpolation.
+            </p>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Architecture -->
+    <div class="max-w-6xl mx-auto px-6 sm:px-8 section">
+        <h2>Architecture Overview</h2>
+
+        <p>ChronosDefrag operates in two phases: <strong>offline training</strong> and <strong>online inference.</strong></p>
+
+        <h3>Training Phase</h3>
+
+        <div class="architecture-box mb-8">
+<pre>Raw Tick Stream (T, F)
+         │
+         ▼
+   Block Slicer
+   ├─ Causal · non-overlapping
+   ├─ Timestamp-tracked
+   └─ (N, block_len, F)
+         │
+         ▼
+   ╔════════════════════════════════╗
+   ║    RegimeEncoder               ║
+   ║  ├─ Input projection           ║
+   ║  ├─ N × ResidualBlock          ║
+   ║  │  ├─ CausalConv1D            ║
+   ║  │  ├─ Pre-norm + GELU         ║
+   ║  ├─ Temporal mean pooling      ║
+   ║  ├─ LayerNorm                  ║
+   ║  ├─ Latent head (L2-norm)      ║
+   ║  ├─ Projection head            ║
+   ║  ├─ InfoNCE loss               ║
+   ║  ├─ TER regularisation         ║
+   ║  └─ LCR regularisation         ║
+   ╚════════════════════════════════╝
+         │  (N, latent_dim) ∈ S^(d-1)
+         ▼
+   ╔════════════════════════════════╗
+   ║   VectorDefragRouter           ║
+   ║  ├─ All-pairs cosine sim       ║
+   ║  ├─ Greedy NN chain            ║
+   ║  └─ Permutation π              ║
+   ╚════════════════════════════════╝
+         │  Pseudo-timeline z[π]
+         ▼
+   ╔════════════════════════════════╗
+   ║   TemporalPredictor            ║
+   ║  ├─ Stacked GLURecurrentBlocks ║
+   ║  ├─ Operates on z[π]           ║
+   ║  └─ Latent reconstruction      ║
+   ╚════════════════════════════════╝</pre>
+        </div>
+
+        <h3>Inference Phase</h3>
+
+        <div class="architecture-box">
+<pre>Live Tick Window (block_len, F)
+         │
+         ▼
+   RegimeEncoder
+   └─ Query latent z_q
+         │
+         ▼
+   VectorDefragRouter.reconstruct_context()
+   ├─ Batched mm() → similarities
+   ├─ topk() → neighbors
+   ├─ SPD weighting (temporal decay)
+   └─ Weighted aggregate
+         │
+         ▼
+   TemporalPredictor.infer()
+         │
+         ▼
+   {alpha_prediction, regime_confidence, system_latency_ms}</pre>
+        </div>
+
+        <h3>Key Components</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Module</th>
+                    <th>Responsibility</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>RegimeEncoder</code></td>
+                    <td>Maps market windows to unit-sphere latent embeddings via InfoNCE + regularisers</td>
+                </tr>
+                <tr>
+                    <td><code>VectorDefragRouter</code></td>
+                    <td>Greedy nearest-neighbour chaining on latent manifold to construct pseudo-timeline</td>
+                </tr>
+                <tr>
+                    <td><code>TemporalPredictor</code></td>
+                    <td>Gated linear recurrence units trained on defragmented timeline</td>
+                </tr>
+                <tr>
+                    <td><code>ChronosDefragEngine</code></td>
+                    <td>End-to-end orchestration: fit(), predict_live(), manage registry</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Novel Mechanisms -->
+    <div class="max-w-6xl mx-auto px-6 sm:px-8 section">
+        <h2>Novel Mechanisms</h2>
+
+        <p>
+            ChronosDefrag introduces two mechanisms not found in standard deep learning libraries:
+        </p>
+
+        <!-- TER -->
+        <div class="mechanism-card mb-8">
+            <h3>1. Temporal Entropy Regularisation (TER)</h3>
+            
+            <p class="text-sm text-slate-700 mt-4 mb-4">
+                <strong>Location:</strong> <code class="bg-white px-2 py-1 rounded text-xs">RegimeEncoder.temporal_entropy_reg()</code>
+            </p>
+
+            <p class="text-sm text-slate-700 mb-4">
+                Constructs a soft assignment matrix <code class="bg-white px-2 py-1 rounded text-xs">P ∈ ℝ^(B × B)</code> via row-wise softmax over pairwise cosine similarities within a batch. Computes mean Shannon entropy and penalises it falling below a target:
+            </p>
+
+            <div class="math-block text-sm">
+                $$L_{\text{TER}} = \max(0,\, H_{\text{target}} - \bar{H}(P)) \cdot \lambda_{\text{entropy}}$$
+            </div>
+
+            <p class="text-sm text-slate-700 mt-4">
+                <strong>Why it works:</strong> Prevents latent collapse without requiring discrete cluster assignments or prototype banks. Operates directly on the geometry of the cosine similarity matrix.
+            </p>
+        </div>
+
+        <!-- SPD -->
+        <div class="mechanism-card">
+            <h3>2. Similarity Persistence Decay (SPD)</h3>
+            
+            <p class="text-sm text-slate-700 mt-4 mb-4">
+                <strong>Location:</strong> <code class="bg-white px-2 py-1 rounded text-xs">VectorDefragRouter.query()</code>
+            </p>
+
+            <p class="text-sm text-slate-700 mb-4">
+                A temporal-distance-aware weighting function applied to cosine similarities at inference. Parameter-free, differentiable with respect to neither query nor registry, adds zero training overhead:
+            </p>
+
+            <div class="math-block text-sm">
+                $$\hat{s}(i) = \cos(q, h_i) \cdot \delta^{(|t_q - t_i| / |H|)}$$
+            </div>
+
+            <p class="text-sm text-slate-700 mt-4">
+                <strong>Key property:</strong> Monotonically down-weights registry entries temporally far from the query, respecting the implicit non-stationarity structure of financial data without explicit regime labelling.
+            </p>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Mathematical Foundations -->
+    <div class="max-w-6xl mx-auto px-6 sm:px-8 section">
+        <h2>Mathematical Foundations</h2>
+
+        <h3>Latent Manifold & InfoNCE Loss</h3>
+
+        <p>
+            Each market window $x \in \mathbb{R}^{T \times F}$ is mapped to a unit-sphere embedding $z \in \mathcal{S}^{d-1}$ via encoder $\varphi_\theta$. The contrastive objective (InfoNCE / NT-Xent) maximises agreement between augmented views of the same block while repelling embeddings of different blocks:
+        </p>
+
+        <div class="math-block">
+            $$L_{\text{NCE}} = -\mathbb{E}\left[\log \frac{\exp(z_i \cdot z_j / \tau)}{\sum_k \exp(z_i \cdot z_k / \tau)}\right]$$
+        </div>
+
+        <p>
+            where $\tau$ is a learnable log-temperature parameter, clipped to $(0, 1)$ to prevent numerical instability.
+        </p>
+
+        <h3>Pseudo-Timeline Construction</h3>
+
+        <p>
+            The defragmentation permutation $\pi$ is found via greedy nearest-neighbour chaining on $\mathcal{S}^{d-1}$. Starting from block 0, each subsequent position is the unvisited block with highest cosine similarity to the current position:
+        </p>
+
+        <div class="math-block">
+            $$\pi^* \approx \arg\min_{\pi \in \text{Sym}(N)} \sum_{i=1}^{N-1} \left\|z_{\pi(i+1)} - z_{\pi(i)}\right\|^2$$
+        </div>
+
+        <p>
+            This is the Euclidean TSP on the unit sphere. The greedy solution is $O(N^2)$ but executes inside a single <code class="bg-slate-200 px-2 py-1 rounded text-sm">torch.mm()</code> call—no Python loops.
+        </p>
+
+        <h3>Timeline Entropy Diagnostic</h3>
+
+        <p>
+            After construction, ChronosDefrag reports a mixing ratio that indicates regime separation quality:
+        </p>
+
+        <div class="math-block">
+            $$\eta = 1 - \frac{|\text{corr}(\pi, \text{arange}(N))|}{N}$$
+        </div>
+
+        <p>
+            $\eta \approx 1$ indicates high regime mixing (pseudo-timeline substantially reordered). $\eta \approx 0$ signals latent collapse — increase encoder depth or adjust regularisation.
+        </p>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Benchmarks -->
+    <div class="max-w-6xl mx-auto px-6 sm:px-8 section">
+        <h2>Performance & Benchmarks</h2>
+
+        <p>
+            Measured on Apple M2 Pro, CPU-only, PyTorch 2.3, Python 3.11. No GPU required.
+        </p>
+
+        <h3>Training Performance</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Stage</th>
+                    <th>Blocks (N)</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Encoder (30 epochs, batch 32)</td>
+                    <td>96</td>
+                    <td>~40s</td>
+                </tr>
+                <tr>
+                    <td>Pseudo-timeline construction</td>
+                    <td>96</td>
+                    <td>~0.4ms</td>
+                </tr>
+                <tr>
+                    <td>Predictor (20 epochs, batch 32)</td>
+                    <td>88 windows</td>
+                    <td>~2s</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Inference Latency</h3>
+
+        <div class="stat-grid">
+            <div class="stat-box">
+                <p class="stat-label">Mean Latency</p>
+                <p class="stat-value">1.14ms</p>
+            </div>
+            <div class="stat-box">
+                <p class="stat-label">p50 Latency</p>
+                <p class="stat-value">1.09ms</p>
+            </div>
+            <div class="stat-box">
+                <p class="stat-label">p95 Latency</p>
+                <p class="stat-value">1.89ms</p>
+            </div>
+            <div class="stat-box">
+                <p class="stat-label">p99 Latency</p>
+                <p class="stat-value">2.31ms</p>
+            </div>
+            <div class="stat-box">
+                <p class="stat-label">Throughput</p>
+                <p class="stat-value">~877</p>
+                <p class="stat-label">QPS</p>
+            </div>
+            <div class="stat-box">
+                <p class="stat-label">Peak Memory</p>
+                <p class="stat-value">~180MB</p>
+            </div>
+        </div>
+
+        <div class="info-box mt-8">
+            <p>
+                <strong>Includes:</strong> encoder forward pass + registry lookup + SPD weighting + predictor forward pass. First 5 calls excluded (warm-up).
+            </p>
+        </div>
+
+        <h3>Test Suite</h3>
+
+        <div class="bg-slate-900 text-slate-100 p-6 rounded font-mono text-sm border border-slate-700 my-8">
+            <p>19 passed in 4.1s</p>
+        </div>
+
+        <p>
+            Coverage: tensor shapes · causal padding correctness · block non-overlap · pseudo-timeline validity · collapse detection · augmentation integrity · latency budget · determinism under fixed seed.
+        </p>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Installation & Quickstart -->
+    <div class="max-w-6xl mx-auto px-6 sm:px-8 section" id="quickstart">
+        <h2>Installation & Quickstart</h2>
+
+        <h3>Installation</h3>
+
+        <div class="code-block mb-8"><pre><code class="language-bash">pip install chronosdefrag</code></pre></div>
+
+        <p><strong>Requirements:</strong> Python ≥ 3.10, PyTorch ≥ 2.1, NumPy ≥ 1.24</p>
+
+        <h3>Minimal Example</h3>
+
+        <div class="code-block mb-8"><pre><code class="language-python">import torch
+from defrag.config import DefragConfig
+from defrag.engine import ChronosDefragEngine
+
+# Configuration
+cfg = DefragConfig()
+engine = ChronosDefragEngine(cfg)
+
+# (T, F) chronological tick-level features
+# F = 6 features by default (open, high, low, close, volume, returns)
+data = torch.randn(4096, 6)
+
+# Train: discover regimes, build pseudo-timeline, train predictor
+engine.fit(data)
+
+# Inference: route live window, predict regime
+live_window = torch.randn(cfg.encoder.block_len, 6)
+result = engine.predict_live(live_window)
+
+print(f"alpha      : {result.alpha_prediction.item():+.5f}")
+print(f"confidence : {result.regime_confidence * 100:.1f}%")
+print(f"latency    : {result.system_latency_ms:.2f}ms")</code></pre></div>
+
+        <h3>Run Verification Suite</h3>
+
+        <div class="code-block mb-8"><pre><code class="language-bash">python main.py</code></pre></div>
+
+        <p>Expected output with synthetic market data:</p>
+
+        <div class="bg-slate-900 text-slate-100 p-6 rounded font-mono text-sm border border-slate-700 mb-8">
+<pre>  [TICK 0001]  latency= 1.23ms  confidence= 24.3%  alpha=+0.31847
+  [TICK 0002]  latency= 1.11ms  confidence= 26.1%  alpha=+0.28902
+  [TICK 0003]  latency= 1.08ms  confidence= 27.6%  alpha=+0.19374
+  ...
+  mean : 1.14ms  p95 : 1.89ms  p99 : 2.31ms  QPS : 877</pre>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Configuration -->
+    <div class="max-w-6xl mx-auto px-6 sm:px-8 section">
+        <h2>Configuration Reference</h2>
+
+        <p>All hyperparameters are typed dataclasses. Override at instantiation:</p>
+
+        <div class="code-block mb-8"><pre><code class="language-python">from defrag.config import DefragConfig, DeploymentMode
+
+cfg = DefragConfig(
+    mode    = DeploymentMode.PRODUCTION,
+    device  = "auto",  # cuda > mps > cpu
+    seed    = 42,
+
+    # Encoder configuration
+    encoder = {
+        "input_dim"        : 6,
+        "block_len"        : 64,           # must be power of 2
+        "hidden_dim"       : 128,
+        "latent_dim"       : 64,
+        "num_layers"       : 4,
+        "entropy_weight"   : 0.01,         # TER coefficient
+        "continuity_weight": 0.005,        # Latent continuity
+        "temperature"      : 0.07,
+    },
+
+    # Routing configuration
+    routing = {
+        "registry_capacity": 8192,
+        "top_k"            : 16,
+        "similarity_decay" : 0.92,         # SPD δ coefficient
+        "min_confidence"   : 0.05,
+    },
+
+    # Predictor configuration
+    predictor = {
+        "latent_dim"   : 64,
+        "hidden_dim"   : 128,
+        "num_layers"   : 3,
+        "forecast_dim" : 1,
+        "grad_clip"    : 1.0,
+    },
+
+    # Optimization configuration
+    optim = {
+        "encoder_epochs"  : 40,
+        "predictor_epochs": 30,
+        "batch_size"      : 64,
+        "encoder_lr"      : 3e-4,
+        "amp_enabled"     : False,
+    },
+)</code></pre></div>
+
+        <h3>Deployment Modes</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Mode</th>
+                    <th>Assertions</th>
+                    <th>Logging</th>
+                    <th>Use Case</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>RESEARCH</code></td>
+                    <td>Enabled</td>
+                    <td>Verbose</td>
+                    <td>Development & debugging</td>
+                </tr>
+                <tr>
+                    <td><code>STAGING</code></td>
+                    <td>Enabled</td>
+                    <td>Reduced</td>
+                    <td>Pre-production validation</td>
+                </tr>
+                <tr>
+                    <td><code>PRODUCTION</code></td>
+                    <td>Disabled</td>
+                    <td>Minimal</td>
+                    <td>Low-latency inference</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Design Philosophy -->
+    <div class="max-w-6xl mx-auto px-6 sm:px-8 section">
+        <h2>Design Philosophy</h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div class="comparison-item">
+                <h4 class="font-bold text-slate-900 mb-3">🔐 Causality by Construction</h4>
+                <p class="text-sm text-slate-700">
+                    Every Conv1d uses left-only padding (<code>CausalConv1d</code>). Block slicer tracks timestamps explicitly. <code>predict_live()</code> asserts query timestamp exceeds training boundary.
+                </p>
+            </div>
+
+            <div class="comparison-item">
+                <h4 class="font-bold text-slate-900 mb-3">🎯 No External Vector DBs</h4>
+                <p class="text-sm text-slate-700">
+                    Registry is a fixed-size circular buffer of L2-normalised embeddings. Lookup is pure tensor algebra: <code>mm() → topk()</code>. Stays on-device with zero serialisation overhead.
+                </p>
+            </div>
+
+            <div class="comparison-item">
+                <h4 class="font-bold text-slate-900 mb-3">🧠 Self-Supervised Throughout</h4>
+                <p class="text-sm text-slate-700">
+                    No price labels, forward returns, or external annotations required. Encoder learns via contrastive pairs. Predictor reconstructs latent embeddings. Works on any multivariate tick series.
+                </p>
+            </div>
+
+            <div class="comparison-item">
+                <h4 class="font-bold text-slate-900 mb-3">📦 Minimal Dependencies</h4>
+                <p class="text-sm text-slate-700">
+                    <code>torch</code>, <code>numpy</code>, Python stdlib only. No pandas, scikit-learn, Lightning, Hydra, Ray, or vector DB frameworks. Full install graph inspectable in under 1 minute.
+                </p>
+            </div>
+
+            <div class="comparison-item">
+                <h4 class="font-bold text-slate-900 mb-3">🔄 Deterministic by Default</h4>
+                <p class="text-sm text-slate-700">
+                    Single <code>cfg.seed_everything()</code> covers Python <code>random</code>, NumPy, PyTorch CPU/CUDA. Every test is deterministic and passes on a cold run.
+                </p>
+            </div>
+
+            <div class="comparison-item">
+                <h4 class="font-bold text-slate-900 mb-3">⚡ Pure PyTorch</h4>
+                <p class="text-sm text-slate-700">
+                    Leverages PyTorch 2.0+ features: <code>torch.compile</code> support, native dtype handling, integrated autograd. No custom CUDA kernels or external compute libraries.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Limitations -->
+    <div class="max-w-6xl mx-auto px-6 sm:px-8 section">
+        <h2>Limitations & Failure Modes</h2>
+
+        <h3>Known Limitations</h3>
+
+        <ul class="space-y-3 text-slate-700">
+            <li><strong>Experimental research framework</strong> with no live-trading validation.</li>
+            <li><code>alpha_prediction</code> is a latent-space quantity — a proxy for regime continuation, not an interpretable return forecast.</li>
+            <li>Minimum training size: $N \geq 50$ blocks ($T \geq 50 \times$ <code>block_len</code> ticks).</li>
+            <li>Greedy pseudo-timeline construction is $O(N^2)$. For $N > 5000$ blocks, chunked approximation required.</li>
+            <li>No uncertainty quantification over predictions. Point estimates during transitional regimes should be treated with scepticism.</li>
+        </ul>
+
+        <h3>Failure Modes & Mitigations</h3>
+
+        <div class="info-box">
+            <p>
+                <strong>Latent Collapse:</strong> All embeddings converge to a small region. Symptoms: uniform confidence ~1.0, timeline entropy $\eta \approx 0$. Mitigation: increase <code>entropy_weight</code>, lower <code>temperature</code>, increase <code>batch_size</code>.
+            </p>
+        </div>
+
+        <div class="info-box">
+            <p>
+                <strong>Similarity Drift:</strong> Encoder representation geometry shifts during training. Early registry entries become stale. Mitigation: reduce <code>encoder_lr</code> late in training; re-fit when <code>regime_confidence</code> degrades persistently.
+            </p>
+        </div>
+
+        <div class="info-box">
+            <p>
+                <strong>Non-Stationarity Mismatch:</strong> Structural regime change (crisis, halving, regulation) has no historical analogue. Symptom: uniformly low <code>regime_confidence</code>. Mitigation: periodic re-fit on rolling window; monitor confidence distribution in production.
+            </p>
+        </div>
+
+        <div class="info-box">
+            <p>
+                <strong>Pseudo-Timeline Pathology:</strong> Greedy chain produces near-chronological permutation when latent space doesn't separate regimes. Symptom: timeline entropy $\eta < 0.1$. Mitigation: increase encoder depth, verify feature normalisation.
+            </p>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Footer -->
+    <div class="bg-slate-50 border-t border-slate-200 py-12">
+        <div class="max-w-6xl mx-auto px-6 sm:px-8">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-12">
+                <div>
+                    <h4 class="font-semibold text-slate-900 mb-4">Resources</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="https://github.com/prakulhiremath/chronosdefrag" class="text-blue-600 hover:underline" target="_blank" rel="noopener">GitHub Repository</a></li>
+                        <li><a href="https://pypi.org/project/chronosdefrag/" class="text-blue-600 hover:underline" target="_blank" rel="noopener">PyPI Package</a></li>
+                        <li><a href="https://doi.org/10.5281/zenodo.20331774" class="text-blue-600 hover:underline" target="_blank" rel="noopener">Zenodo Archive</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-slate-900 mb-4">Learn</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="https://medium.com/@prakulhiremath/defragmenting-market-time-non-stationary-representation-learning-in-pure-pytorch-15c4a18ccfa3" class="text-blue-600 hover:underline" target="_blank" rel="noopener">Medium Article</a></li>
+                        <li><a href="https://github.com/prakulhiremath/chronosdefrag/issues" class="text-blue-600 hover:underline" target="_blank" rel="noopener">Report Issues</a></li>
+                        <li><a href="https://github.com/prakulhiremath/chronosdefrag#contributing" class="text-blue-600 hover:underline" target="_blank" rel="noopener">Contributing Guide</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-slate-900 mb-4">Contact</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="mailto:prakulhiremath03@gmail.com" class="text-blue-600 hover:underline">Email</a></li>
+                        <li><a href="https://github.com/prakulhiremath" class="text-blue-600 hover:underline" target="_blank" rel="noopener">GitHub Profile</a></li>
+                        <li><a href="https://twitter.com" class="text-blue-600 hover:underline" target="_blank" rel="noopener">Twitter</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="border-t border-slate-200 pt-8">
+                <p class="text-sm text-slate-600 text-center mb-4">
+                    <strong>ChronosDefrag</strong> — Temporal Defragmentation for Quantitative Finance
+                </p>
+                <p class="text-xs text-slate-500 text-center">
+                    MIT License · PyTorch 2.1+ · Python 3.10+ · <a href="https://github.com/prakulhiremath/chronosdefrag" class="text-blue-600 hover:underline" target="_blank" rel="noopener">Open Source</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // Highlight code blocks
+        document.querySelectorAll('.code-block pre code').forEach((block) => {
+            hljs.highlightElement(block);
+        });
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+
+        // Fade in animation on load
+        window.addEventListener('load', () => {
+            document.body.style.opacity = '1';
+        });
+    </script>
+</body>
+</html>
